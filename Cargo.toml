@@ -1,0 +1,22 @@
+[package]
+name = "cn-input-encode"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+description = "Optimal input-method encoding solver for Chinese text"
+readme = "README.md"
+repository = "https://github.com/GarthTB/cn-input-encode"
+license = "MIT"
+keywords = ["input-method", "chinese", "encoding", "cli", "optimization"]
+categories = ["command-line-utilities", "text-processing"]
+
+[dependencies]
+fxhash = "0.2.1"
+serde = { version = "1.0.228", features = ["derive"] }
+toml = { version = "1.1.2", default-features = false, features = ["parse", "serde"] }
+
+[profile.release]
+strip = "debuginfo"
+lto = true
+panic = "abort"
+codegen-units = 1
