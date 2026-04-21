@@ -1,4 +1,8 @@
+mod chunk_reader;
 mod config;
+mod cost_map;
+mod layout_map;
+mod trie_dict;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
