@@ -1,38 +1,37 @@
 pub(crate) struct CostMap {
-    map: rustc_hash::FxHashMap<u64, f32>,
-    mean: f32,
+    map: rustc_hash::FxHashMap<u64, f64>,
+    mean: f64,
 }
 
 impl CostMap {
-    pub(crate) fn new(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let mut map = rustc_hash::FxHashMap::with_capacity_and_hasher(2500, Default::default());
+    pub(crate) fn new(path: &str) -> crate::DynResult<Self> {
+        let mut map = crate::utils::fx_hash_map_with_capacity(2500);
         let mut sum = 0f64;
         for l in std::fs::read_to_string(path)?.lines() {
-            let Some((k, v)) = l.split_once('\t') else {
-                continue;
-            };
-            let mut c = k.chars();
-            if let (Some(a), Some(b), None, Ok(v)) = (c.next(), c.next(), c.next(), v.parse()) {
-                if let Some(v0) = map.insert(pack(a, b), v) {
-                    return Err(format!("键对'{a}{b}'开销重复：'{v0}'、'{v}'").into());
+            if let Some((k, v)) = l.split_once('\t') {
+                let mut c = k.chars();
+                if let (Some(a), Some(b), None, Ok(v)) = (c.next(), c.next(), c.next(), v.parse()) {
+                    if let Some(v0) = map.insert(pack(a, b), v) {
+                        return Err(format!("键对'{a}{b}'开销重复：'{v0}'、'{v}'").into());
+                    }
+                    sum += v;
                 }
-                sum += v as f64;
-            }
+            };
         }
         let mean = match map.len() {
             0 => return Err("无有效键对".into()),
-            v => (sum / v as f64) as f32,
+            v => sum / v as f64,
         };
         Ok(Self { map, mean })
     }
 
     #[inline]
-    pub(crate) fn get_pair(&self, a: char, b: char) -> f32 {
+    pub(crate) fn get_pair(&self, a: char, b: char) -> f64 {
         *self.map.get(&pack(a, b)).unwrap_or(&self.mean)
     }
 
     #[inline]
-    pub(crate) fn get_seq(&self, code: &str) -> f32 {
+    pub(crate) fn get_seq(&self, code: &str) -> f64 {
         let mut chars = code.chars();
         let mut sum = 0.0;
         if let Some(mut c0) = chars.next() {
