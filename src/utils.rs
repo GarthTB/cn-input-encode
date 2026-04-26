@@ -1,30 +1,31 @@
-use std::io::Read;
+use std::{fs, io::Read, str};
 
-pub(crate) fn fx_hash_map_with_capacity<K, V>(c: usize) -> rustc_hash::FxHashMap<K, V> {
-    rustc_hash::FxHashMap::with_capacity_and_hasher(c, Default::default())
-}
-
-pub(crate) fn for_each_chunk<F: FnMut(&str)>(path: &str, mut f: F) -> crate::DynResult<()> {
-    let mut buf = vec![0; crate::CHUNK_SIZE].into_boxed_slice();
+pub(crate) fn for_each_chunk<F>(path: &str, mut f: F) -> crate::DynResult<()>
+where
+    F: FnMut(&str) -> crate::DynResult<()>,
+{
+    let mut buf = [0; crate::CHUNK_SIZE];
     let mut len = 0;
-    let mut file = std::fs::File::open(path)?;
+    let mut file = fs::File::open(path)?;
     loop {
         match file.read(&mut buf[len..]) {
-            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Ok(0) if len > 0 => return Err("文件不完整".into()),
+            Ok(0) => return Ok(()),
+            Ok(n) => len += n,
             Err(e) => return Err(e.into()),
-            Ok(n) if n > 0 => len += n,
-            _ => return Ok(()),
         }
-        let s = match std::str::from_utf8(&buf[..len]) {
-            Err(e) if e.error_len().is_some() => return Err(e.into()),
-            Err(e) => unsafe { std::str::from_utf8_unchecked(&buf[..e.valid_up_to()]) },
-            Ok(s) => s,
+        match str::from_utf8(&buf[..len]) {
+            Ok(s) => {
+                f(s)?;
+                len = 0
+            }
+            Err(e) if e.error_len().is_none() => unsafe {
+                let v = e.valid_up_to();
+                f(str::from_utf8_unchecked(&buf[..v]))?;
+                buf.copy_within(v..len, 0);
+                len -= v
+            },
+            Err(e) => return Err(e.into()),
         };
-        f(s);
-        let s_len = s.len();
-        if s_len > 0 && s_len < len {
-            buf.copy_within(s_len..len, 0);
-        }
-        len -= s_len;
     }
 }

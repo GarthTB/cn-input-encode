@@ -7,7 +7,7 @@ impl LayoutMap {
         if layout.len() != 14 {
             return Err("布局配置非14项".into());
         }
-        let mut map = crate::utils::fx_hash_map_with_capacity(50);
+        let mut map = rustc_hash::FxHashMap::with_capacity_and_hasher(50, Default::default());
         let (fingers, rows) = layout.split_at(9);
         for (i, f) in (1u8..10).zip(fingers) {
             let v = i << 4;

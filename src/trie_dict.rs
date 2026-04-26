@@ -1,8 +1,7 @@
-use crate::cost_map::CostMap;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 #[derive(Default)]
-struct WordNode {
+struct WNode {
     /// 键为字，值为w_pool索引
     next: FxHashMap<char, usize>,
     /// (编码, 开销, c_pool索引)
@@ -10,75 +9,77 @@ struct WordNode {
 }
 
 #[derive(Default)]
-struct CodeNode {
+struct CNode {
     /// 键为码元，值为c_pool索引
     next: FxHashMap<char, usize>,
 }
 
 pub(crate) struct TrieDict {
-    /// 字词Trie：键为字，值为词的信息
-    w_pool: Vec<WordNode>,
-    /// 编码Trie：键为码元
-    c_pool: Vec<CodeNode>,
+    w_pool: Vec<WNode>,
+    c_pool: Vec<CNode>,
 }
 
 impl TrieDict {
-    pub(crate) fn new(path: &str, costs: &CostMap) -> crate::DynResult<Self> {
+    pub(crate) fn new(path: &str, costs: &crate::cost_map::CostMap) -> crate::DynResult<Self> {
         let s = std::fs::read_to_string(path)?;
         let mut entries = parse_entries(&s)?;
         entries.sort_by(|a, b| b.2.total_cmp(&a.2));
 
         let mut w_pool = Vec::with_capacity(262144);
-        let next = crate::utils::fx_hash_map_with_capacity(8192);
-        let info = Vec::new();
-        w_pool.push(WordNode { next, info });
+        let next = FxHashMap::with_capacity_and_hasher(8192, Default::default());
+        w_pool.push(WNode { next, info: vec![] });
         let mut c_pool = Vec::with_capacity(262144);
-        let next = crate::utils::fx_hash_map_with_capacity(32);
-        c_pool.push(CodeNode { next });
+        let next = FxHashMap::with_capacity_and_hasher(32, Default::default());
+        c_pool.push(CNode { next });
 
         let mut codes = FxHashSet::with_capacity_and_hasher(entries.len(), Default::default());
         for (word, code, _) in entries {
             let code = distinct_and_record(code, &mut codes);
-            let mut w_idx = 0;
+            let mut w_i = 0;
             for c in word.chars() {
                 let i = w_pool.len();
-                w_idx = *w_pool[w_idx].next.entry(c).or_insert(i);
-                if w_idx == i {
-                    w_pool.push(WordNode::default());
+                w_i = *w_pool[w_i].next.entry(c).or_insert(i);
+                if w_i == i {
+                    w_pool.push(WNode::default());
                 }
             }
-            let mut c_idx = 0;
+            let mut c_i = 0;
             for c in code.chars() {
                 let i = c_pool.len();
-                c_idx = *c_pool[c_idx].next.entry(c).or_insert(i);
-                if c_idx == i {
-                    c_pool.push(CodeNode::default());
+                c_i = *c_pool[c_i].next.entry(c).or_insert(i);
+                if c_i == i {
+                    c_pool.push(CNode::default());
                 }
             }
             let cost = costs.get_seq(&code);
-            w_pool[w_idx].info.push((code, cost, c_idx));
+            w_pool[w_i].info.push((code, cost, c_i));
         }
 
         Ok(Self { w_pool, c_pool })
     }
 
-    pub(crate) fn for_each_head<F>(&self, s: &[char], mut f: F) -> Option<bool>
+    /// 返回: (是否有匹配词, 是否可能有词在s末截断)
+    pub(crate) fn for_each_head<F>(&self, s: &[char], mut f: F) -> crate::DynResult<(bool, bool)>
     where
-        F: FnMut(u16, &str, f64, &FxHashMap<char, usize>),
+        F: FnMut(usize, &str, f64, usize) -> crate::DynResult<()>,
     {
         let mut node = &self.w_pool[0];
-        let mut w_len = 0;
-        for c in s {
-            let Some(&next) = node.next.get(&c) else {
-                return Some(w_len > 0);
-            };
+        let mut wl = 0;
+        while wl < s.len()
+            && let Some(&next) = node.next.get(&s[wl])
+        {
             node = &self.w_pool[next];
-            w_len += 1;
-            for (code, cost, c_idx) in &node.info {
-                f(w_len, code, *cost, &self.c_pool[*c_idx].next);
+            wl += 1;
+            for (code, cost, c_i) in &node.info {
+                f(wl, code, *cost, *c_i)?;
             }
         }
-        (node.next.len() == 0).then_some(w_len > 0)
+        Ok((wl > 0, wl == s.len() && node.next.len() > 0))
+    }
+
+    #[inline]
+    pub(crate) fn need_space(&self, c_node_i: usize, next_char: char) -> bool {
+        self.c_pool[c_node_i].next.contains_key(&next_char)
     }
 }
 
@@ -91,7 +92,8 @@ fn parse_entries(s: &str) -> Result<Vec<(&str, &str, f64)>, &'static str> {
                 return None;
             }
             let mut parts = l.splitn(4, '\t');
-            let (word, code) = (parts.next()?, parts.next()?);
+            let word = parts.next()?;
+            let code = parts.next()?;
             let weight = parts.next().map_or(0.0, |p| {
                 let (s, d) = p.strip_suffix('%').map_or((p, 1.0), |p| (p, 100.0));
                 s.parse::<f64>().ok().map_or(0.0, |v| v / d)

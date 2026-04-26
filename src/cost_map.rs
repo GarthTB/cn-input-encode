@@ -5,7 +5,7 @@ pub(crate) struct CostMap {
 
 impl CostMap {
     pub(crate) fn new(path: &str) -> crate::DynResult<Self> {
-        let mut map = crate::utils::fx_hash_map_with_capacity(2500);
+        let mut map = rustc_hash::FxHashMap::with_capacity_and_hasher(2500, Default::default());
         let mut sum = 0f64;
         for l in std::fs::read_to_string(path)?.lines() {
             if let Some((k, v)) = l.split_once('\t') {
