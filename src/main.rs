@@ -9,6 +9,7 @@ mod usage_analyzer;
 mod utils;
 
 pub(crate) const CHUNK_SIZE: usize = 1 << 18; // 爆栈风险
+
 pub(crate) type DynResult<T> = Result<T, Box<dyn error::Error>>;
 
 fn main() -> DynResult<()> {
@@ -38,19 +39,22 @@ fn main() -> DynResult<()> {
         let mut o_file = opener.open(&o_path)?;
 
         println!("开始编码文件'{i_path}'...");
-        encoder.reset();
+        encoder.prepare();
         utils::for_each_chunk(&i_path, |s| {
-            let (from, to) = encoder.shrink_and_feed(s);
-            print!("\r第{from}-{to}字...");
+            encoder.shrink();
+            let (from, to) = encoder.feed(s);
+            print!("\r    第{from}-{to}字...");
             io::stdout().flush()?;
-            encoder.proc_chunk(&config.costs);
-            encoder.join_and_append(&mut o_file)
+            encoder.proc_chunk(&config.costs)?;
+            Ok(o_file.write_all(&encoder.build_encoding())?)
         })?;
-        let (t_len, c_len, cost) = encoder.proc_end(&mut o_file)?;
+        encoder.shrink();
+        let (t_len, cost) = encoder.proc_end(&config.costs)?;
+        o_file.write_all(&encoder.build_encoding())?;
         println!("完成，共{t_len}字");
 
         println!("分析数据...");
-        let report = usage_analyzer::analyze(&o_path, t_len, c_len, cost, &config.layout)?;
+        let report = usage_analyzer::analyze(&o_path, t_len, cost, &config.layout)?;
         o_file.write_all(&report)?;
         println!("...完成，结果已写入'{o_path}'");
     }

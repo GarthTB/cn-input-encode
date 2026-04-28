@@ -58,8 +58,8 @@ impl TrieDict {
         Ok(Self { w_pool, c_pool })
     }
 
-    /// 返回: (是否有匹配词, 是否可能有词在s末截断)
-    pub(crate) fn for_each_head<F>(&self, s: &[char], mut f: F) -> crate::DynResult<(bool, bool)>
+    /// 返回：是否可能有词在s末截断
+    pub(crate) fn for_each_head<F>(&self, s: &[char], mut f: F) -> crate::DynResult<bool>
     where
         F: FnMut(usize, &str, f64, usize) -> crate::DynResult<()>,
     {
@@ -74,7 +74,7 @@ impl TrieDict {
                 f(wl, code, *cost, *c_i)?;
             }
         }
-        Ok((wl > 0, wl == s.len() && node.next.len() > 0))
+        Ok(wl == s.len() && node.next.len() > 0)
     }
 
     #[inline]

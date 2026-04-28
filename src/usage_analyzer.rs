@@ -3,7 +3,6 @@ use std::io::Write;
 pub(crate) fn analyze(
     path: &str,
     t_len: u64,
-    c_len: u64,
     cost: f64,
     layout: &Option<crate::layout_map::LayoutMap>,
 ) -> crate::DynResult<Vec<u8>> {
@@ -11,17 +10,20 @@ pub(crate) fn analyze(
     writeln!(buf)?; // 空行分隔
     writeln!(buf, "----统计数据----")?;
     writeln!(buf, "总字数\t{t_len}")?;
-    writeln!(buf, "总码数\t{c_len}")?;
-    writeln!(buf, "总开销\t{cost}")?;
-    writeln!(buf, "字均码长\t{}", c_len as f64 / t_len as f64)?;
-    writeln!(buf, "字均开销\t{}", cost / t_len as f64)?;
-    writeln!(buf, "码均开销\t{}", cost / c_len as f64)?;
 
     let Some(layout) = layout else {
+        let mut c_len = 0u64;
+        crate::utils::for_each_chunk(path, |s| Ok(c_len += s.chars().count() as u64))?;
+        writeln!(buf, "总码数\t{c_len}")?;
+        writeln!(buf, "总开销\t{cost}")?;
+        writeln!(buf, "字均码长\t{}", c_len as f64 / t_len as f64)?;
+        writeln!(buf, "字均开销\t{}", cost / t_len as f64)?;
+        writeln!(buf, "码均开销\t{}", cost / c_len as f64)?;
         writeln!(buf, "键盘布局未知，不分析使用率")?;
         return Ok(buf);
     };
 
+    let mut c_len = 0u64;
     let mut finger_cnt = [0u64; 9]; // 各手指计数
     let mut row_cnt = [0u64; 5]; // 各排计数
     let mut repeat_len = 1; // 同键连击长度
@@ -32,6 +34,7 @@ pub(crate) fn analyze(
     let not_thumb_nor_space = |f: u8, r: u8| f > 0 && f < 9 && r > 0 && r < 5;
     crate::utils::for_each_chunk(path, |s| {
         Ok(for c1 in s.chars() {
+            c_len += 1;
             let (f1, r1) = layout.get(c1);
             if f1 > 0 {
                 finger_cnt[f1 as usize - 1] += 1;
@@ -78,6 +81,11 @@ pub(crate) fn analyze(
         let ratio = 100.0 * cnt as f64 / (c_len - window_size + 1) as f64;
         writeln!(buf, "{name}\t{cnt}\t{ratio}%")
     };
+    writeln!(buf, "总码数\t{c_len}")?;
+    writeln!(buf, "总开销\t{cost}")?;
+    writeln!(buf, "字均码长\t{}", c_len as f64 / t_len as f64)?;
+    writeln!(buf, "字均开销\t{}", cost / t_len as f64)?;
+    writeln!(buf, "码均开销\t{}", cost / c_len as f64)?;
     writeln!(buf, "偏倚\t{bias_ratio}%")?;
     add_info(&mut buf, "互击", switch_cnt, 2)?;
     add_info(&mut buf, "拇指", finger_cnt[8], 1)?;
