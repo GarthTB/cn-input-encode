@@ -58,10 +58,11 @@ impl TrieDict {
         Ok(Self { w_pool, c_pool })
     }
 
+    // noinspection RsNeedlessLifetimes
     /// 返回：是否可能有词在s末截断
-    pub(crate) fn for_each_head<F>(&self, s: &[char], mut f: F) -> crate::DynResult<bool>
+    pub(crate) fn for_each_head<'a, F>(&'a self, s: &[char], mut f: F) -> crate::DynResult<bool>
     where
-        F: FnMut(usize, &str, f64, usize) -> crate::DynResult<()>,
+        F: FnMut(usize, &'a str, f64, usize) -> crate::DynResult<()>,
     {
         let mut node = &self.w_pool[0];
         let mut wl = 0;
