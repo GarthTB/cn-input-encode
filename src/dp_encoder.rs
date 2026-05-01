@@ -1,4 +1,4 @@
-use crate::{DynResult, cost_map::CostMap, trie_dict::TrieDict};
+use crate::{cost_map::CostMap, trie_dict::TrieDict};
 
 #[derive(Default)]
 struct State<'a> {
@@ -66,8 +66,13 @@ impl<'a> Encoder<'a> {
         (aft - bef) as u64
     }
 
-    pub(crate) fn proc_chunk(&mut self, costs: &CostMap, break_on_trunc: bool) -> DynResult<()> {
-        Ok(while self.cur < self.text.len() {
+    pub(crate) fn proc_chunk(&mut self, costs: &CostMap, break_on_trunc: bool) {
+        let delta = |c0: char, c1: char, space: bool| match c0 {
+            '\0' => 0.0,
+            c0 if space => costs.get_pair(c0, ' ') + costs.get_pair(' ', c1),
+            c0 => costs.get_pair(c0, c1),
+        };
+        while self.cur < self.text.len() {
             if self
                 .dict
                 .for_each_head(&self.text[self.cur..], |wl, code, cost, c_node_i| {
@@ -77,12 +82,7 @@ impl<'a> Encoder<'a> {
                     for i in 0..self.states[self.cur].len() {
                         let s = &self.states[self.cur][i];
                         let space = s.key.1 > 0 && self.dict.need_space(s.key.1, c1);
-                        let delta = match s.key.0 {
-                            '\0' => 0.0,
-                            c0 if space => costs.get_pair(c0, ' ') + costs.get_pair(' ', c1),
-                            c0 => costs.get_pair(c0, c1),
-                        } + cost;
-                        let cost = s.cost + delta;
+                        let cost = s.cost + delta(s.key.0, c1, space) + cost;
                         let target = self.states[self.cur + wl].iter_mut().find(|s| s.key == key);
                         if let Some(s) = target {
                             if s.cost > cost {
@@ -102,8 +102,8 @@ impl<'a> Encoder<'a> {
                             });
                         }
                     }
-                    Ok(self.end = self.end.max(self.cur + wl))
-                })?
+                    self.end = self.end.max(self.cur + wl)
+                })
                 && break_on_trunc
             {
                 break;
@@ -115,12 +115,7 @@ impl<'a> Encoder<'a> {
                 let mut min_cost = f64::INFINITY;
                 for (i, s) in self.states[self.cur].iter().enumerate() {
                     let sp = s.key.1 > 0 && self.dict.need_space(s.key.1, c1);
-                    let delta = match s.key.0 {
-                        '\0' => 0.0,
-                        c0 if sp => costs.get_pair(c0, ' ') + costs.get_pair(' ', c1),
-                        c0 => costs.get_pair(c0, c1),
-                    };
-                    let cost = s.cost + delta;
+                    let cost = s.cost + delta(s.key.0, c1, sp);
                     if cost < min_cost {
                         best_i = i;
                         space = sp;
@@ -140,11 +135,24 @@ impl<'a> Encoder<'a> {
             if self.cur == self.end && self.states[self.cur].len() == 1 {
                 self.base = self.cur;
             }
-        })
+        }
     }
 
-    pub(crate) fn proc_end(&mut self, costs: &CostMap) -> DynResult<f64> {
-        todo!("补足末尾空格、删除非最优编码、取出最小开销")
+    pub(crate) fn proc_end(&mut self, costs: &CostMap) -> f64 {
+        let states = &mut self.states[self.cur];
+        for s in states.iter_mut() {
+            if !s.key.0.is_ascii_digit() && s.key.1 > 0 {
+                s.cost += costs.get_pair(s.key.0, ' ');
+            }
+        }
+        states.select_nth_unstable_by(0, |a, b| a.cost.total_cmp(&b.cost));
+        states.truncate(1);
+        let s = &mut states[0];
+        if !s.key.0.is_ascii_digit() && s.key.1 > 0 {
+            s.code = Box::leak(format!("{} ", s.code).into());
+        }
+        self.base = self.cur;
+        s.cost
     }
 
     pub(crate) fn build_encoding(&self) -> Vec<u8> {

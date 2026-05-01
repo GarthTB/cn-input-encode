@@ -60,9 +60,9 @@ impl TrieDict {
 
     // noinspection RsNeedlessLifetimes
     /// 返回：是否可能有词在s末截断
-    pub(crate) fn for_each_head<'a, F>(&'a self, s: &[char], mut f: F) -> crate::DynResult<bool>
+    pub(crate) fn for_each_head<'a, F>(&'a self, s: &[char], mut f: F) -> bool
     where
-        F: FnMut(usize, &'a str, f64, usize) -> crate::DynResult<()>,
+        F: FnMut(usize, &'a str, f64, usize),
     {
         let mut node = &self.w_pool[0];
         let mut wl = 0;
@@ -72,10 +72,10 @@ impl TrieDict {
             node = &self.w_pool[next];
             wl += 1;
             for (code, cost, c_i) in &node.info {
-                f(wl, code, *cost, *c_i)?;
+                f(wl, code, *cost, *c_i);
             }
         }
-        Ok(wl == s.len() && node.next.len() > 0)
+        wl == s.len() && node.next.len() > 0
     }
 
     #[inline]

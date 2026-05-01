@@ -38,13 +38,13 @@ fn main() -> DynResult<()> {
             print!("\r    第{}-{}字...", t_len + 1, t_len + delta);
             io::stdout().flush()?;
             t_len += delta;
-            encoder.proc_chunk(&config.costs, true)?;
+            encoder.proc_chunk(&config.costs, true);
             Ok(o_file.write_all(&encoder.build_encoding())?)
         })?;
         encoder.shrink();
-        encoder.proc_chunk(&config.costs, false)?;
+        encoder.proc_chunk(&config.costs, false);
 
-        let cost = encoder.proc_end(&config.costs)?;
+        let cost = encoder.proc_end(&config.costs);
         o_file.write_all(&encoder.build_encoding())?;
         println!("完成，共{t_len}字");
 
