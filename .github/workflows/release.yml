@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '**'
+
+env:
+  CARGO_TERM_COLOR: always
+  BINARY_NAME: cn-input-encode
+
+jobs:
+  release:
+    permissions:
+      contents: write
+
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            suffix: .exe
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            suffix: ''
+          - os: macos-13
+            target: x86_64-apple-darwin
+            suffix: ''
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            suffix: ''
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate SemVer Tag
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          if [[ ! "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "::error::Tag '$TAG' is not a valid SemVer format (must be like 1.0.0 or 1.0.0-beta, 'v' prefix is not allowed)."
+            exit 1
+          fi
+          echo "Tag $TAG is a valid SemVer."
+        shell: bash
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Extract version
+        id: extract_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >>$GITHUB_OUTPUT
+        shell: bash
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare packaging
+        shell: bash
+        run: |
+          mkdir staging
+          cp "target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}${{ matrix.suffix }}" staging/
+          cp README.md LICENSE staging/
+          cp -r cfg staging/
+
+      - name: Compress with 7z (Ultra compression)
+        run: |
+          cd staging
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            7zz a -t7z -mx=9 -m0=lzma2 "../${{ env.BINARY_NAME }}-${{ steps.extract_version.outputs.VERSION }}-${{ matrix.target }}.7z" .
+          else
+            7z a -t7z -mx=9 -m0=lzma2 "../${{ env.BINARY_NAME }}-${{ steps.extract_version.outputs.VERSION }}-${{ matrix.target }}.7z" .
+          fi
+        shell: bash
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ env.BINARY_NAME }}-${{ steps.extract_version.outputs.VERSION }}-${{ matrix.target }}.7z
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
