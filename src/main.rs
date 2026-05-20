@@ -14,7 +14,7 @@ pub(crate) type DynResult<T> = Result<T, Box<dyn error::Error>>;
 
 fn main() -> DynResult<()> {
     println!(
-        "cn-input-encode 1.0.0 (20260502)\n\
+        "cn-input-encode 1.0.2 (20260520)\n\
         作者：Garth TB | 天卜 <g-art-h@outlook.com>\n\
         仓库：https://github.com/GarthTB/cn-input-encode\n\
         加载配置..."
