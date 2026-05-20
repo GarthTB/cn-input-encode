@@ -2,15 +2,9 @@
 
 高效求解特定输入法下中文文本的全局最优编码
 
-<p>
-    <a href="https://github.com/GarthTB/cn-input-encode/releases/latest">
-        <img src="https://img.shields.io/github/v/release/GarthTB/cn-input-encode?color=0FBF3E&label=Latest&logo=github" alt="Latest Release"/>
-    </a>
-    <img src="https://skillicons.dev/icons?i=git,rust,windows" alt="Git Rust Windows"/>
-    <a href="https://mit-license.org">
-        <img src="https://img.shields.io/badge/License-MIT-750014" alt="MIT License"/>
-    </a>
-</p>
+[![Latest Release](https://img.shields.io/github/v/release/GarthTB/cn-input-encode?color=0FBF3E&label=Latest&logo=github)](https://github.com/GarthTB/cn-input-encode/releases/latest)
+![Tech Stack](https://skillicons.dev/icons?i=git,rust,windows)
+[![License MIT](https://img.shields.io/badge/License-MIT-750014)](https://mit-license.org)
 
 ## ✨ 特性
 
@@ -22,22 +16,11 @@
 
 ## 📥 使用
 
-### Windows 预编译包
+### 预编译包
 
 1. 从 [Releases](https://github.com/GarthTB/cn-input-encode/releases/latest) 下载压缩包并解压
-2. 在 `config.toml` 中配置参数
-3. 运行 `cn-input-encode.exe`，结果将输出至输入文件所在目录，默认为 `{原名}-code.txt`，若已存在则自动加编号，无覆写风险
-
-### 其他平台无预编译包
-
-获取源码后使用 Cargo 构建：
-
-```bash
-git clone https://github.com/GarthTB/cn-input-encode.git
-cd cn-input-encode
-cargo build --release
-cp -r cfg target/release/
-```
+2. 在 `cfg/config.toml` 中配置参数
+3. 运行 `cn-input-encode`，结果将输出至输入文件所在目录，默认为 `{原名}-code.txt`，若已存在则自动加编号，无覆写风险
 
 ### 原理
 
@@ -66,7 +49,13 @@ cp -r cfg target/release/
 
 ## 📝 版本
 
-### v1.0.0 (20260502) 首发
+### 1.0.1 (20260520)
+
+添加各平台的预编译包
+
+### 1.0.0 (20260502)
+
+首发
 
 ### 🕰️ 前身（废弃）：
 
