@@ -70,11 +70,7 @@ jobs:
       - name: Compress with 7z (Ultra compression)
         run: |
           cd staging
-          if [ "$RUNNER_OS" == "macOS" ]; then
-            7zz a -t7z -mx=9 -m0=lzma2 "../${{ env.BINARY_NAME }}-${{ steps.extract_version.outputs.VERSION }}-${{ matrix.target }}.7z" .
-          else
-            7z a -t7z -mx=9 -m0=lzma2 "../${{ env.BINARY_NAME }}-${{ steps.extract_version.outputs.VERSION }}-${{ matrix.target }}.7z" .
-          fi
+          7z a -t7z -mx=9 -m0=lzma2 "../${{ env.BINARY_NAME }}-${{ steps.extract_version.outputs.VERSION }}-${{ matrix.target }}.7z" .
         shell: bash
 
       - name: Upload to GitHub Release
