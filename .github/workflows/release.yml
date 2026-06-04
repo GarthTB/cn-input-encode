@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Disable Git autocrlf
-      - run: git config --global core.autocrlf false
+        run: git config --global core.autocrlf false
 
       - name: Checkout code
         uses: actions/checkout@v4
